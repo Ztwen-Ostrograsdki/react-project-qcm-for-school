@@ -36,13 +36,13 @@ const Users = () => {
   };
 
   return (
-    <div className="relative overflow-x-auto bg-blue-950 shadow-xs rounded-base border border-default mt-10 p-2">
+    <div className="pt-20 dark:bg-gray-900 mx-auto px-6 min-h-screen relative overflow-hidden flex justify-center flex-col gap-y-2 items-center p-3 w-full shadow-xs rounded-base border-default">
       {error && (
         <h5 className="w-full animate-pulse rounded-md p-2 text-red-800 bg-red-400  text-center">
           Une erreur est survenue : <span className="underline">{error}</span>
         </h5>
       )}
-      <form className="items-center justify-center bg-transparent w-full mx-auto p-2">
+      <form className="items-center justify-center bg-transparent w-full mx-auto text-sky-400">
         <label
           htmlFor="search"
           className="block mb-2.5 text-sm font-medium text-heading sr-only "

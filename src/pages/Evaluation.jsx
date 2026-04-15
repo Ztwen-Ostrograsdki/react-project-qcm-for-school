@@ -1,7 +1,7 @@
-import { memo, useReducer, useState } from "react";
+import { memo, useReducer, useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import photo from "../assets/img1.jpg";
-import { questions } from "../data/questions";
+import { all_questions } from "../data/questions";
 
 const stagger = {
   animate: { transition: { staggerChildren: 0.1 } },
@@ -9,7 +9,8 @@ const stagger = {
 
 const best_response_value = 2;
 
-const max_questions = 20 / best_response_value - 1;
+const max_questions = 20 / best_response_value;
+const TOTAL_TIME = 1 * 60;
 
 const fadeUp = {
   initial: { opacity: 0, y: 24 },
@@ -30,6 +31,8 @@ const initialState = {
   question: null,
   selectedChoice: null,
   questionsPassed: [],
+  best_choice: false,
+  questions: [],
 };
 
 const reducer = (state, action) => {
@@ -43,6 +46,7 @@ const reducer = (state, action) => {
         duration: 0,
         evaluating: true,
         finished: false,
+        best_choice: false,
         question: null,
         selectedChoice: null,
         questionsPassed: [],
@@ -57,9 +61,11 @@ const reducer = (state, action) => {
         duration: 0,
         evaluating: true,
         finished: false,
+        best_choice: false,
         questionsPassed: [],
-        message: "Initialisation et chargement de la question 1",
-        question: questions[Math.floor(Math.random() * questions.length)],
+        message: null,
+        question:
+          state.questions[Math.floor(Math.random() * state.questions.length)],
         selectedChoice: null,
         questionsPassed: [],
       };
@@ -74,19 +80,20 @@ const reducer = (state, action) => {
         message: "Voici la question suivante!",
         selectedChoice: null,
         questionsPassed: [...state.questionsPassed, state.question],
-        question: questions.filter(
+        question: state.questions.filter(
           (question) => question.id !== state.question.id,
-        )[Math.floor(Math.random() * questions.length)],
+        )[Math.floor(Math.random() * state.questions.length)],
       };
     case "UP_TO_NEXT":
       return {
         ...state,
         selectedChoice: null,
+        faileds: state.faileds + 1,
         questionsPassed: [...state.questionsPassed, state.question],
         message: "On passe à la question suivante!",
-        question: questions.filter(
+        question: state.questions.filter(
           (question) => question.id !== state.question.id,
-        )[Math.floor(Math.random() * questions.length)],
+        )[Math.floor(Math.random() * state.questions.length)],
       };
     case "TERMINATED":
       return {
@@ -103,6 +110,7 @@ const reducer = (state, action) => {
         total: state.total + best_response_value,
         wons: state.wons + 1,
         message: "Le choix est correct!",
+        best_choice: true,
       };
     case "BAD_CHOICE":
       return {
@@ -110,6 +118,13 @@ const reducer = (state, action) => {
         finished: false,
         faileds: state.faileds + 1,
         message: "Le choix est incorrect!",
+        best_choice: false,
+      };
+    case "TIME_DELAYED":
+      return {
+        ...state,
+        finished: true,
+        message: "Le temps est épuisé!",
       };
     case "EXIT":
       return {
@@ -123,6 +138,7 @@ const reducer = (state, action) => {
         question: null,
         selectedChoice: null,
         questionsPassed: [],
+        best_choice: false,
       };
 
     case "RESET":
@@ -136,13 +152,36 @@ const reducer = (state, action) => {
         question: null,
         selectedChoice: null,
         questionsPassed: [],
+        best_choice: false,
       };
     default:
       return state;
   }
 };
 
+const shuffle = (array) => {
+  const data = [...array];
+
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+
+    [data[i], data[j]] = [data[j], data[i]];
+  }
+
+  return data;
+};
+
+function initialisation() {
+  return {
+    questions: all_questions,
+  };
+}
+
 const Evaluation = memo(() => {
+  const timeLeft = useRef(TOTAL_TIME);
+
+  const [state, dispatch] = useReducer(reducer, initialState, initialisation);
+
   const choiceSelected = (choiceID) => {
     if (state.selectedChoice !== null) {
       return;
@@ -159,10 +198,24 @@ const Evaluation = memo(() => {
     }
   };
 
-  const [state, dispatch] = useReducer(reducer, initialState);
+  useEffect(() => {
+    if (state.finished) return;
+
+    const timer = setInterval(() => {
+      timeLeft.current -= 1;
+      if (timeLeft.current <= 0) {
+        clearInterval(timer);
+        dispatch({ type: "TIME_DELAYED" });
+
+        return 0;
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [state.finished]);
 
   return (
-    <div className="pt-20 dark:bg-gray-900 mx-auto px-6 min-h-screen w-3/4 flex items-center relative overflow-hidden">
+    <div className="pt-36 dark:bg-gray-900 mx-auto px-6 min-h-screen w-4/5">
       {!state.evaluating && (
         <section className="flex justify-center">
           <motion.div
@@ -214,9 +267,9 @@ const Evaluation = memo(() => {
               >
                 <div
                   onClick={() => dispatch({ type: "START" })}
-                  className="px-6 py-3 rounded-full bg-green-600 hover:bg-green-600 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-green-700 hover:shadow-gray-800 cursor-pointer"
+                  className="px-6 py-3 rounded-full bg-green-600 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-orange-600 hover:text-black hover:shadow-gray-800 cursor-pointer animate-pulse"
                 >
-                  Démarrer maintenant →
+                  Démarrer mon évaluation maintenant →
                 </div>
               </motion.div>
 
@@ -257,149 +310,264 @@ const Evaluation = memo(() => {
         </section>
       )}
 
-      {state.question != null && state.evaluating && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.92 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
-          className="w-full"
-        >
-          <div className="flex shadow-sm rounded-lg py-1 shadow-green-500 text-center w-full justify-center items-center gap-y-3 my-2">
-            <div className="">
-              <span className="text-amber-400 font-semibold block text-xl col-span-3">
-                Note actuelle:
-              </span>
-              <span className="text-3xl font-bold block w-full text-green-800 rounded-xl col-span-2 border">
-                {state.total} / 20
-              </span>
-            </div>
-          </div>
-
-          <div className="my-2 text-gray-400">
-            <div className="flex flex-col border p-2 rounded-md border-green-500 gap-2">
-              <h5 className="border-b text-gray-900 flex items-center gap-x-2 text-lg font-semibold p-2 bg-green-500 rounded-full">
-                <span className="rounded-full bg-white size-[15px] inline-block animate-pulse"></span>
-                <span>
-                  {state.question.subject} | {state.question.classe} | SA
-                  {state.question.chapiter}
+      {state.finished && (
+        <div className="w-full flex flex-col">
+          <motion.h4
+            className="text-center uppercase text-4xl text-green-800 font-bold bg-green-300 rounded-full p-2 my-2"
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.6, ease: "easeOut" }}
+          >
+            Partie terminée
+          </motion.h4>
+          <div className="w-full rounded-lg bg-gray-900 flex flex-col justify-center text-xl text-center text-gray-400">
+            <motion.h5
+              className="text-green-500"
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, delay: 1.3, ease: "easeOut" }}
+            >
+              Vous avez repondu à {state.wons} questions correctement
+            </motion.h5>
+            <motion.h5
+              className="text-red-500"
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, delay: 1.7, ease: "easeOut" }}
+            >
+              Vous avez manqué à {state.faileds} questions
+            </motion.h5>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, delay: 2, ease: "easeOut" }}
+              className="flex justify-center gap-x-3 w-full mt-3"
+            >
+              <div className="flex justify-center gap-2 flex-col rounded-3xl p-5 w-1/2 bg-gray-800">
+                <span className="border-b">Taux de réussite </span>
+                <span className="text-5xl text-gray-500 font-bold">
+                  {Number(state.wons / max_questions) * 100}%
                 </span>
-              </h5>
-              <div className="flex flex-col">
-                <h6 className="flex flex-col justify-center items-center text-lg font-semibold border rounded-md p-2 my-2 bg-gray-900 w-full">
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.92 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
-                    className="flex flex-col justify-center items-center text-lg font-semibold shadow-sm shadow-green-600 rounded-md p-2 my-2 bg-gray-900 w-full"
-                  >
-                    <span className="text-xl border-b-2">
-                      <span>Question</span>
-                      <span className="mx-2">
-                        N° {state.questionsPassed.length + 1}
+              </div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.6, delay: 2.8, ease: "easeOut" }}
+                className="flex justify-center gap-2 flex-col rounded-3xl p-5 w-1/2 bg-gray-800"
+              >
+                <span className="border-b">Note obtenue </span>
+                <span className="text-5xl text-gray-500 font-bold">
+                  {state.total} / {max_questions * best_response_value}
+                </span>
+              </motion.div>
+            </motion.div>
+          </div>
+          <div className="grid grid-cols-2 justify-end gap-x-2 my-3 text-center w-full">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, delay: 3.2, ease: "easeOut" }}
+              onClick={() => dispatch({ type: "EXIT" })}
+              className="px-6 py-3 rounded-full bg-orange-400 hover:bg-orange-600 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:shadow-gray-800 cursor-pointer col-span-1"
+            >
+              Quitter
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, delay: 4, ease: "easeOut" }}
+              onClick={() => dispatch({ type: "INIT" })}
+              className="px-6 py-3 rounded-full bg-blue-400 hover:bg-blue-600 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:shadow-gray-800 cursor-pointer col-span-1"
+            >
+              Nouvelle partie
+            </motion.div>
+          </div>
+        </div>
+      )}
+
+      {state.finished === false && (
+        <div className="w-full">
+          {state.question != null && state.evaluating && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
+              className="w-full"
+            >
+              {state.message && state.best_choice === true && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.92 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
+                  className="flex shadow-sm rounded-lg py-1 bg-green-400 text-green-900 text-center w-full justify-center items-center gap-y-3 my-2 text-sm font-semibold"
+                >
+                  {state.message}
+                </motion.div>
+              )}
+
+              {state.message && state.best_choice === false && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.92 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
+                  className="flex shadow-sm rounded-lg py-1 bg-red-300 text-red-700 text-center w-full justify-center items-center gap-y-3 my-2 text-sm font-semibold"
+                >
+                  {state.message}
+                </motion.div>
+              )}
+
+              <div className="my-2 text-gray-400">
+                <div className="flex flex-col border p-1.5 my-2 rounded-md border-green-500 gap-2">
+                  <h5 className="border-b text-gray-900 flex justify-between items-center gap-x-2 text-lg font-semibold p-1 bg-green-500 rounded-full">
+                    <span className="w-2/3">
+                      <span className="rounded-full bg-white size-3.5 inline-block animate-pulse mr-1.5"></span>
+                      <span>
+                        {state.question.subject} | {state.question.classe} | SA
+                        {state.question.chapiter}
                       </span>
                     </span>
-                    <span className="text-amber-400 p-3 text-center">
-                      {state.question.question}
-                    </span>
-                  </motion.div>
-                  <div className="flex justify-end gap-x-2 w-full  text-center">
-                    {state.questionsPassed.length + 1 !== max_questions &&
-                      !state.selectedChoice !== null && (
-                        <div
-                          onClick={() => dispatch({ type: "UP_TO_NEXT" })}
-                          className="px-6 py-3 rounded-full bg-transparent border border-gray-700 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-blue-400 hover:shadow-gray-900 hover:text-gray-900 cursor-pointer w-1/3"
-                        >
-                          Passer
+                    <div className="flex items-center bg-gray-800 rounded-full w-1/3 text-center px-2.5">
+                      <span className="text-gray-400 font-semibold block text-sm w-1/2">
+                        Note actuelle:
+                      </span>
+                      <span className="font-bold block w-full text-green-300 rounded-xl">
+                        {state.total} / 20
+                      </span>
+                    </div>
+                  </h5>
+
+                  <div className="flex flex-col">
+                    <h6 className="flex flex-col justify-center items-center text-base font-semibold bg-gray-900 w-full">
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.92 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{
+                          duration: 0.6,
+                          delay: 0.3,
+                          ease: "easeOut",
+                        }}
+                        className="flex flex-col justify-center items-center font-semibold shadow-sm shadow-green-600 rounded-xl p-2 my-2 bg-gray-900 w-full"
+                      >
+                        <span className="text-xl border-b-2">
+                          <span>Question</span>
+                          <span className="mx-2">
+                            N° {state.questionsPassed.length + 1}
+                          </span>
+                        </span>
+                        <span className="text-amber-400 p-3 text-center">
+                          {state.question.question}
+                        </span>
+                      </motion.div>
+                      <div className="flex justify-between w-full  text-center my-1.5">
+                        <h5 className="w-1/5">
+                          Temps restants : <span>{timeLeft.current}</span>{" "}
+                          secondes
+                        </h5>
+                        <div className="flex justify-end gap-x-2 w-4/5  text-center my-1.5">
+                          {state.questionsPassed.length !== max_questions &&
+                            state.selectedChoice === null && (
+                              <div
+                                onClick={() => dispatch({ type: "UP_TO_NEXT" })}
+                                className="px-6 py-1 rounded-full bg-sky-600 border border-gray-700 text-gray-100 font-medium hover:border-gray-950 transition-all duration-200 hover:bg-blue-400 hover:shadow-gray-900 hover:text-gray-900 cursor-pointer w-1/3"
+                              >
+                                Passer
+                              </div>
+                            )}
+                          {state.questionsPassed.length < max_questions - 1 &&
+                            state.selectedChoice !== null && (
+                              <div
+                                onClick={() => dispatch({ type: "CONTNUE" })}
+                                className="px-6 py-1 rounded-full bg-transparent border border-gray-700 text-gray-100 font-medium hover:border-gray-950 transition-all duration-200 hover:bg-blue-400 hover:shadow-gray-900 hover:text-gray-900 cursor-pointer w-1/3"
+                              >
+                                Suivant
+                              </div>
+                            )}
+                          {state.selectedChoice !== null &&
+                            state.questionsPassed.length ===
+                              max_questions - 1 && (
+                              <div
+                                onClick={() => dispatch({ type: "TERMINATED" })}
+                                className="px-6 py-1 rounded-full bg-transparent border border-gray-700 text-gray-100 font-medium hover:border-gray-950 transition-all duration-200 hover:bg-blue-400 hover:shadow-gray-900 hover:text-gray-900 cursor-pointer w-1/3"
+                              >
+                                Terminé
+                              </div>
+                            )}
                         </div>
-                      )}
-                    {state.questionsPassed.length + 1 !== max_questions &&
-                      state.selectedChoice !== null && (
-                        <div
-                          onClick={() => dispatch({ type: "CONTNUE" })}
-                          className="px-6 py-3 rounded-full bg-transparent border border-gray-700 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-blue-400 hover:shadow-gray-900 hover:text-gray-900 cursor-pointer w-1/3"
+                      </div>
+                    </h6>
+                    <div className="flex flex-col font-mono font-semibold gap-2 min-h-50 text-base">
+                      {shuffle(state.question.choises).map((choice, index) => (
+                        <motion.div
+                          key={choice.id}
+                          onClick={() => choiceSelected(choice.id)}
+                          className={`flex items-center gap-x-2 border cursor-pointer rounded-lg p-2 ${state.selectedChoice === null ? "hover:bg-gray-800 hover:text-sky-500" : ""} ${choice.id === state.selectedChoice && choice.id === state.question.best_choice ? "text-green-700" : choice.id === state.selectedChoice && choice.id !== state.question.best_choice ? "text-red-600" : state.selectedChoice !== null && choice.id === state.question.best_choice && choice.id !== state.selectedChoice ? "hidden" : state.selectedChoice !== null && choice.id !== state.selectedChoice ? "hidden" : ""}`}
+                          initial={{ opacity: 0, scale: 0.5 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{
+                            duration: 0.6,
+                            delay: Number(0, 6 + index * 0.6),
+                            ease: "easeOut",
+                          }}
                         >
-                          Suivant
-                        </div>
-                      )}
-                    {state.selectedChoice !== null &&
-                      state.questionsPassed.length === max_questions && (
-                        <div
-                          onClick={() => dispatch({ type: "TERMINATED" })}
-                          className="px-6 py-3 rounded-full bg-transparent border border-gray-700 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-blue-400 hover:shadow-gray-900 hover:text-gray-900 cursor-pointer w-1/3"
-                        >
-                          Terminé
-                        </div>
-                      )}
+                          <span className="rounded-md px-3 py-2 border ">
+                            Rép. {index + 1}
+                          </span>
+                          <span>{choice.value}</span>
+                        </motion.div>
+                      ))}
+                    </div>
                   </div>
-                </h6>
-                <div className="flex flex-col font-mono font-semibold gap-2">
-                  {state.question.choises.map((choice, index) => (
-                    <motion.div
-                      key={choice.id}
-                      onClick={() => choiceSelected(choice.id)}
-                      className={`flex items-center gap-x-2 border cursor-pointer rounded-lg p-2 hover:bg-gray-800 hover:text-sky-500 ${choice.id === state.selectedChoice && choice.id === state.question.best_choice ? "bg-green-700" : choice.id === state.selectedChoice && choice.id !== state.question.best_choice ? "bg-red-600" : state.selectedChoice !== null && choice.id === state.question.best_choice && choice.id !== state.selectedChoice ? "hidden" : state.selectedChoice !== null && choice.id !== state.selectedChoice ? "hidden" : ""}`}
-                      initial={{ opacity: 0, scale: 0.5 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{
-                        duration: 0.6,
-                        delay: 0.3 * (index + 1),
-                        ease: "easeOut",
-                      }}
-                    >
-                      <span className="rounded-md px-3 py-2 border ">
-                        {choice.id}
-                      </span>
-                      <span>{choice.value}</span>
-                    </motion.div>
-                  ))}
                 </div>
               </div>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 justify-end gap-x-2 text-center w-full">
-            <div
-              onClick={() => dispatch({ type: "EXIT" })}
-              className="px-6 py-3 rounded-full bg-orange-400 hover:bg-orange-600 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-orange-700 hover:shadow-gray-800 cursor-pointer col-span-1"
+              <div className="grid grid-cols-3 justify-end gap-x-2 text-center w-full">
+                <div
+                  onClick={() => dispatch({ type: "EXIT" })}
+                  className="px-6 py-3 rounded-full bg-orange-400 hover:bg-orange-600 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-orange-700 hover:shadow-gray-800 cursor-pointer col-span-1"
+                >
+                  Quitter
+                </div>
+                <div
+                  onClick={() => dispatch({ type: "RESET" })}
+                  className="px-6 py-3 rounded-full bg-gray-400 hover:bg-gray-600 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-gray-700 hover:shadow-gray-800 cursor-pointer col-span-1"
+                >
+                  Reprendre
+                </div>
+                <div
+                  onClick={() => dispatch({ type: "TERMINATED" })}
+                  className="px-6 py-3 rounded-full bg-red-400 hover:bg-red-600 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-red-700 hover:shadow-gray-800 cursor-pointer col-span-1"
+                >
+                  Abandonner
+                </div>
+              </div>
+            </motion.div>
+          )}
+          {state.question == null && state.evaluating && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
+              className="flex flex-col w-3/5 mx-auto mt-32"
             >
-              Quitter
-            </div>
-            <div
-              onClick={() => dispatch({ type: "RESET" })}
-              className="px-6 py-3 rounded-full bg-gray-400 hover:bg-gray-600 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-gray-700 hover:shadow-gray-800 cursor-pointer col-span-1"
-            >
-              Reprendre
-            </div>
-            <div
-              onClick={() => dispatch({ type: "TERMINATED" })}
-              className="px-6 py-3 rounded-full bg-red-400 hover:bg-red-600 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-red-700 hover:shadow-gray-800 cursor-pointer col-span-1"
-            >
-              Abandonner
-            </div>
-          </div>
-        </motion.div>
-      )}
-      {state.question == null && state.evaluating && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.92 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
-          className="w-full"
-        >
-          <div className="flex justify-center gap-x-2 text-center">
-            <div
-              onClick={() => dispatch({ type: "EXIT" })}
-              className="px-6 py-3 rounded-full bg-orange-400 hover:bg-orange-600 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-orange-700 hover:shadow-gray-800 cursor-pointer w-1/2"
-            >
-              Quitter
-            </div>
-            <div
-              onClick={() => dispatch({ type: "INIT" })}
-              className="px-6 py-3 rounded-full bg-red-400 hover:bg-red-600 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-red-700 hover:shadow-gray-800 cursor-pointer w-1/2"
-            >
-              Commencer
-            </div>
-          </div>
-        </motion.div>
+              <h2 className="text-center text-4xl text-green-600 uppercase py-3 border-b border-green-600">
+                Vous êtes prêt
+              </h2>
+              <div className="flex justify-center gap-x-2 text-center w-full items-center mt-5">
+                <div
+                  onClick={() => dispatch({ type: "EXIT" })}
+                  className="px-6 py-3 rounded-full bg-orange-400  text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-orange-700 hover:shadow-gray-800 cursor-pointer w-1/2"
+                >
+                  Revenir en arrière
+                </div>
+                <div
+                  onClick={() => dispatch({ type: "INIT" })}
+                  className="px-6 py-3 rounded-full bg-blue-400 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-blue-700 hover:shadow-gray-800 cursor-pointer w-1/2"
+                >
+                  Commencer
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </div>
       )}
     </div>
   );

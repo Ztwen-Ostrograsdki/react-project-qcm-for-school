@@ -1,4 +1,4 @@
-export const questions = [
+export const all_questions = [
   // SA 3 DEBUT
   {
     id: 1,

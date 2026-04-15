@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 const Carte = () => {
   const { user } = useContext(UserContext);
   return (
-    <div className="flex justify-center flex-col gap-y-2 items-center p-3 max-w-6xl">
+    <div className="pt-20 dark:bg-gray-900 mx-auto px-6 min-h-screen relative overflow-hidden flex justify-center flex-col gap-y-2 items-center p-3 w-full">
       <div className="rounded-lg bg-gray-800 border p-2 w-1/3">
         <h3 className="text-center uppercase my-2 border-b">carte de membre</h3>
         <div className="flex flex-col text-orange-500">

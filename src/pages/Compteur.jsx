@@ -13,16 +13,22 @@ const Compteur = () => {
   }, [state.message]);
 
   return (
-    <div className="flex justify-center p-3 max-w-6xl  ">
-      <div className="rounded-lg bg-gray-600 border p-2 w-2/3">
-        <h3 className="text-center uppercase my-2 border-b ">
+    <div className="pt-20 dark:bg-gray-900 mx-auto px-6 min-h-screen relative overflow-hidden flex justify-center flex-col gap-y-2 items-center p-3 w-full ">
+      {state.message && (
+        <div className="text-center p-3 text-sm font-semibold bg-green-300 text-green-900 rounded-md shadow transition  w-2/3">
+          <h5>{state.message}</h5>
+        </div>
+      )}
+      {!state.message && (
+        <div className="text-center py-4 text-sm font-semibold transition  w-2/3">
+          <h5>{""}</h5>
+        </div>
+      )}
+      <div className="rounded-lg border border-sky-600 p-2 w-2/3 text-sky-600">
+        <h3 className="text-center uppercase my-2 border-b border-sky-500">
           Le comteur +{state.incr_step} et -{state.decr_step}
         </h3>
-        {state.message && (
-          <div className="text-center p-3 text-sm font-semibold bg-green-300 text-green-900 rounded-md shadow transition">
-            <h5>{state.message}</h5>
-          </div>
-        )}
+
         <div className="my-2 grid grid-cols-3 justify-between gap-x-2 p-2 text-gray-900 font-semibold">
           <div className="gap-x-2 grid col-span-1 grid-cols-3 justify-between bg-red-200 rounded-md p-1">
             <div
@@ -79,7 +85,7 @@ const Compteur = () => {
         </div>
         <div className="flex text-center flex-col justify-center items-center p-4">
           <span>La valeur est </span>
-          <span className="text-9xl font-bold animate-pulse inline-block pt-0 pb-4 px-3 text-amber-400 rounded-xl bg-gray-500">
+          <span className="text-9xl font-bold animate-pulse inline-block pt-0 pb-4 px-3 text-amber-400 rounded-xl ">
             {state.counter}
           </span>
         </div>
