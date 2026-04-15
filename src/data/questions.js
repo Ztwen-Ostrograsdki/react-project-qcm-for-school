@@ -1,4 +1,4 @@
-export const qcms = [
+export const questions = [
   // SA 3 DEBUT
   {
     id: 1,

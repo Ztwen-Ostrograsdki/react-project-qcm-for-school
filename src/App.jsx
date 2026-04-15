@@ -8,6 +8,9 @@ import NavBar from "./components/NavBar";
 import { UserContext } from "./contexts/UserContext";
 import UserDataFormManager from "./forms/UserDataFormManager";
 import { CounterProvider } from "./contexts/CounterContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
+import Home from "./pages/Home";
+import Evaluation from "./pages/Evaluation";
 
 function App() {
   const [user, setUser] = useState({
@@ -18,18 +21,26 @@ function App() {
       "https://ui-avatars.com/api/?name=Vincent+Houndekindo&background=random",
   });
   return (
-    <UserContext.Provider value={{ user, setUser }}>
-      <CounterProvider>
-        <NavBar />
-        <Routes>
-          <Route path="/" element={<Compteur />} />
-          <Route path="/compteur" element={<Compteur />} />
-          <Route path="/les-utilisateurs" element={<Users />} />
-          <Route path="/carte-membre" element={<Carte />} />
-          <Route path="/editer-mon-profil" element={<UserDataFormManager />} />
-        </Routes>
-      </CounterProvider>
-    </UserContext.Provider>
+    <ThemeProvider>
+      <UserContext.Provider value={{ user, setUser }}>
+        <CounterProvider>
+          <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900">
+            <NavBar />
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/compteur" element={<Compteur />} />
+              <Route path="/les-utilisateurs" element={<Users />} />
+              <Route path="/carte-membre" element={<Carte />} />
+              <Route path="/evaluation" element={<Evaluation />} />
+              <Route
+                path="/editer-mon-profil"
+                element={<UserDataFormManager />}
+              />
+            </Routes>
+          </div>
+        </CounterProvider>
+      </UserContext.Provider>
+    </ThemeProvider>
   );
 }
 

@@ -1,74 +1,123 @@
-import { memo, useContext } from "react";
-import { Link } from "react-router-dom";
-import { UserContext } from "../contexts/UserContext";
-import { useCounter } from "../contexts/CounterContext";
+import { memo, useState, useEffect } from "react";
+import { NavLink } from "react-router-dom";
+import { useTheme } from "../contexts/ThemeContext";
 
-const NavBar = () => {
-  const { user } = useContext(UserContext);
-  const { state } = useCounter();
+const links = [
+  { to: "/", label: "Acceuil" },
+  { to: "/compteur", label: "Compteur" },
+  { to: "/les-utilisateurs", label: "Les membres" },
+  { to: "/carte-membre", label: "Carte" },
+  { to: "/evaluation", label: "Faire une évaluation" },
+  { to: "/editer-mon-profil", label: "Editer profil" },
+];
+const Navbar = memo(() => {
+  const { theme, toggleTheme } = useTheme();
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <nav className="bg-gray-900 fixed w-full z-20 top-0 start-0 border-b border-default">
-      <div className="max-w-7xl flex flex-wrap items-center justify-between mx-auto p-4">
-        <Link
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 h-16 transition-all border-b duration-300
+        ${
+          scrolled
+            ? "bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm shadow-green-500 border-green-500"
+            : "bg-transparent border-green-800"
+        }`}
+    >
+      <div className="max-w-5xl mx-auto h-full px-6 flex items-center justify-between">
+        {/* Logo */}
+        <NavLink
           to="/"
-          className="flex items-center space-x-3 rtl:space-x-reverse"
+          className="font-bold text-lg text-gray-900 dark:text-white font-mono"
         >
-          <span className="self-center text-xl text-heading font-semibold whitespace-nowrap">
-            React - Apprentissage
-          </span>
-        </Link>
-        <div className="hidden w-full md:block md:w-auto" id="navbar-default">
-          <ul className="font-medium flex flex-col p-4 md:p-0 mt-4 border border-default rounded-base bg-neutral-secondary-soft md:flex-row md:space-x-8 rtl:space-x-reverse md:mt-0 md:border-0 md:bg-neutral-primary">
-            <li>
-              <Link
-                to="/compteur"
-                className="block py-2 px-3 text-white bg-brand rounded md:bg-transparent md:text-fg-brand md:p-0"
-                aria-current="page"
+          &lt;ZtweN.dev<span className="text-green-500">/</span>&gt;
+        </NavLink>
+
+        {/* Desktop links */}
+        <ul className="hidden md:flex items-center gap-1">
+          {links.map(({ to, label }) => (
+            <li key={to}>
+              <NavLink
+                to={to}
+                end={to === "/"}
+                className={({ isActive }) =>
+                  `px-4 py-2 rounded-full text-sm font-medium transition-all duration-200
+                  ${
+                    isActive
+                      ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+                  }`
+                }
               >
-                Le compteur
-                {state.counter !== 0 && (
-                  <span className="mx-1 rounded-full bg-gray-600 text-green-200 p-2 py-0.5">
-                    {state.counter}
-                  </span>
-                )}
-              </Link>
+                {label}
+              </NavLink>
             </li>
-            <li>
-              <Link
-                to="/les-utilisateurs"
-                className="block py-2 px-3 text-white bg-brand rounded md:bg-transparent md:text-fg-brand md:p-0"
-              >
-                Les membres
-              </Link>
-            </li>
-            <li>
-              <Link
-                to="/carte-membre"
-                className="block py-2 px-3 text-white bg-brand rounded md:bg-transparent md:text-fg-brand md:p-0"
-              >
-                Carte de membre
-              </Link>
-            </li>
+          ))}
+        </ul>
+
+        <div className="flex items-center gap-2">
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-green-500 hover:text-green-500 transition-all duration-200"
+            aria-label="Changer de thème"
+          >
+            {theme === "light" ? "◑" : "○"}
+          </button>
+
+          {/* Hamburger mobile */}
+          <button
+            onClick={() => setMenuOpen((prev) => !prev)}
+            className="md:hidden w-9 h-9 flex flex-col items-center justify-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700"
+            aria-label="Menu"
+          >
+            <span
+              className={`block w-4 h-px bg-gray-700 dark:bg-gray-300 transition-all duration-300 ${menuOpen ? "rotate-45 translate-y-1.5" : ""}`}
+            />
+            <span
+              className={`block w-4 h-px bg-gray-700 dark:bg-gray-300 transition-all duration-300 ${menuOpen ? "opacity-0" : ""}`}
+            />
+            <span
+              className={`block w-4 h-px bg-gray-700 dark:bg-gray-300 transition-all duration-300 ${menuOpen ? "-rotate-45 -translate-y-1.5" : ""}`}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile menu */}
+      {menuOpen && (
+        <div className="md:hidden bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800">
+          <ul className="py-2">
+            {links.map(({ to, label }) => (
+              <li key={to}>
+                <NavLink
+                  to={to}
+                  end={to === "/"}
+                  onClick={() => setMenuOpen(false)}
+                  className={({ isActive }) =>
+                    `block px-6 py-3 text-sm font-medium transition-colors
+                    ${
+                      isActive
+                        ? "text-green-500"
+                        : "text-gray-500 dark:text-gray-400 hover:text-green-500"
+                    }`
+                  }
+                >
+                  {label}
+                </NavLink>
+              </li>
+            ))}
           </ul>
         </div>
-        <button
-          type="button"
-          className="flex items-center text-sm bg-neutral-primary rounded-full md:me-0 focus:ring-4 focus:ring-neutral-tertiary"
-          id="user-menu-button"
-        >
-          <img
-            className="w-8 h-8 rounded-full"
-            src={user.avatar}
-            alt="user photo"
-          ></img>
-          <span className="flex flex-col text-sm text-orange-500">
-            <span>{user.username}</span>
-            <small>{user.email}</small>
-          </span>
-        </button>
-      </div>
+      )}
     </nav>
   );
-};
+});
 
-export default memo(NavBar);
+export default Navbar;
