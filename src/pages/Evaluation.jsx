@@ -1,7 +1,8 @@
-import { memo, useReducer, useState, useEffect, useRef } from "react";
+import { memo, useReducer } from "react";
 import { motion } from "framer-motion";
 import photo from "../assets/img1.jpg";
 import { all_questions } from "../data/questions";
+import TimeDisplayer from "../components/TimeDisplayer";
 
 const stagger = {
   animate: { transition: { staggerChildren: 0.1 } },
@@ -9,8 +10,9 @@ const stagger = {
 
 const best_response_value = 2;
 
+const MAX_SECONDS = 5 * 60;
+
 const max_questions = 20 / best_response_value;
-const TOTAL_TIME = 1 * 60;
 
 const fadeUp = {
   initial: { opacity: 0, y: 24 },
@@ -178,8 +180,6 @@ function initialisation() {
 }
 
 const Evaluation = memo(() => {
-  const timeLeft = useRef(TOTAL_TIME);
-
   const [state, dispatch] = useReducer(reducer, initialState, initialisation);
 
   const choiceSelected = (choiceID) => {
@@ -197,22 +197,6 @@ const Evaluation = memo(() => {
       dispatch({ type: "BAD_CHOICE", payload: Number(choiceID) });
     }
   };
-
-  useEffect(() => {
-    if (state.finished) return;
-
-    const timer = setInterval(() => {
-      timeLeft.current -= 1;
-      if (timeLeft.current <= 0) {
-        clearInterval(timer);
-        dispatch({ type: "TIME_DELAYED" });
-
-        return 0;
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [state.finished]);
 
   return (
     <div className="pt-36 dark:bg-gray-900 mx-auto px-6 min-h-screen w-4/5">
@@ -310,13 +294,13 @@ const Evaluation = memo(() => {
         </section>
       )}
 
-      {state.finished && (
+      {state.evaluating && state.finished && (
         <div className="w-full flex flex-col">
           <motion.h4
             className="text-center uppercase text-4xl text-green-800 font-bold bg-green-300 rounded-full p-2 my-2"
             initial={{ opacity: 0, scale: 0.92 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, delay: 0.6, ease: "easeOut" }}
+            transition={{ duration: 0.3, delay: 0.3, ease: "easeOut" }}
           >
             Partie terminée
           </motion.h4>
@@ -325,7 +309,7 @@ const Evaluation = memo(() => {
               className="text-green-500"
               initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 1.3, ease: "easeOut" }}
+              transition={{ duration: 0.3, delay: 0.6, ease: "easeOut" }}
             >
               Vous avez repondu à {state.wons} questions correctement
             </motion.h5>
@@ -333,14 +317,14 @@ const Evaluation = memo(() => {
               className="text-red-500"
               initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 1.7, ease: "easeOut" }}
+              transition={{ duration: 0.3, delay: 0.9, ease: "easeOut" }}
             >
               Vous avez manqué à {state.faileds} questions
             </motion.h5>
             <motion.div
               initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 2, ease: "easeOut" }}
+              transition={{ duration: 0.3, delay: 1.2, ease: "easeOut" }}
               className="flex justify-center gap-x-3 w-full mt-3"
             >
               <div className="flex justify-center gap-2 flex-col rounded-3xl p-5 w-1/2 bg-gray-800">
@@ -352,7 +336,7 @@ const Evaluation = memo(() => {
               <motion.div
                 initial={{ opacity: 0, scale: 0.92 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 2.8, ease: "easeOut" }}
+                transition={{ duration: 0.3, delay: 1.5, ease: "easeOut" }}
                 className="flex justify-center gap-2 flex-col rounded-3xl p-5 w-1/2 bg-gray-800"
               >
                 <span className="border-b">Note obtenue </span>
@@ -366,7 +350,7 @@ const Evaluation = memo(() => {
             <motion.div
               initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 3.2, ease: "easeOut" }}
+              transition={{ duration: 0.3, delay: 1.9, ease: "easeOut" }}
               onClick={() => dispatch({ type: "EXIT" })}
               className="px-6 py-3 rounded-full bg-orange-400 hover:bg-orange-600 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:shadow-gray-800 cursor-pointer col-span-1"
             >
@@ -375,7 +359,7 @@ const Evaluation = memo(() => {
             <motion.div
               initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 4, ease: "easeOut" }}
+              transition={{ duration: 0.3, delay: 1.9, ease: "easeOut" }}
               onClick={() => dispatch({ type: "INIT" })}
               className="px-6 py-3 rounded-full bg-blue-400 hover:bg-blue-600 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:shadow-gray-800 cursor-pointer col-span-1"
             >
@@ -459,10 +443,14 @@ const Evaluation = memo(() => {
                         </span>
                       </motion.div>
                       <div className="flex justify-between w-full  text-center my-1.5">
-                        <h5 className="w-1/5">
-                          Temps restants : <span>{timeLeft.current}</span>{" "}
-                          secondes
-                        </h5>
+                        {state.evaluating && (
+                          <TimeDisplayer
+                            dispatch={dispatch}
+                            is_active={state.evaluating}
+                            delay={MAX_SECONDS}
+                          />
+                        )}
+
                         <div className="flex justify-end gap-x-2 w-4/5  text-center my-1.5">
                           {state.questionsPassed.length !== max_questions &&
                             state.selectedChoice === null && (
@@ -470,7 +458,7 @@ const Evaluation = memo(() => {
                                 onClick={() => dispatch({ type: "UP_TO_NEXT" })}
                                 className="px-6 py-1 rounded-full bg-sky-600 border border-gray-700 text-gray-100 font-medium hover:border-gray-950 transition-all duration-200 hover:bg-blue-400 hover:shadow-gray-900 hover:text-gray-900 cursor-pointer w-1/3"
                               >
-                                Passer
+                                Je ne sais pas quoi choisir passer!
                               </div>
                             )}
                           {state.questionsPassed.length < max_questions - 1 &&
@@ -522,19 +510,19 @@ const Evaluation = memo(() => {
               <div className="grid grid-cols-3 justify-end gap-x-2 text-center w-full">
                 <div
                   onClick={() => dispatch({ type: "EXIT" })}
-                  className="px-6 py-3 rounded-full bg-orange-400 hover:bg-orange-600 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-orange-700 hover:shadow-gray-800 cursor-pointer col-span-1"
+                  className="px-6 py-3 rounded-full bg-orange-400  text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-orange-700 hover:shadow-gray-800 cursor-pointer col-span-1"
                 >
                   Quitter
                 </div>
                 <div
                   onClick={() => dispatch({ type: "RESET" })}
-                  className="px-6 py-3 rounded-full bg-gray-400 hover:bg-gray-600 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-gray-700 hover:shadow-gray-800 cursor-pointer col-span-1"
+                  className="px-6 py-3 rounded-full bg-gray-400 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-gray-700 hover:shadow-gray-800 cursor-pointer col-span-1"
                 >
                   Reprendre
                 </div>
                 <div
                   onClick={() => dispatch({ type: "TERMINATED" })}
-                  className="px-6 py-3 rounded-full bg-red-400 hover:bg-red-600 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-red-700 hover:shadow-gray-800 cursor-pointer col-span-1"
+                  className="px-6 py-3 rounded-full bg-red-400 text-gray-100 font-medium hover:shadow-sm transition-all duration-200 hover:bg-red-700 hover:shadow-gray-800 cursor-pointer col-span-1"
                 >
                   Abandonner
                 </div>
@@ -549,7 +537,7 @@ const Evaluation = memo(() => {
               className="flex flex-col w-3/5 mx-auto mt-32"
             >
               <h2 className="text-center text-4xl text-green-600 uppercase py-3 border-b border-green-600">
-                Vous êtes prêt
+                êtes - vous prêt ?
               </h2>
               <div className="flex justify-center gap-x-2 text-center w-full items-center mt-5">
                 <div
